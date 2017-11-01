@@ -93,7 +93,7 @@ void updateList(listcell *l,const vector *pos,int num)
 }
 
 
-void getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vector box, double *energy)
+int getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vector box, double *energy)
 {
 	int j;
 	int nx,ny,nz,nn;               // Number of cells on surface and in box
@@ -143,6 +143,9 @@ void getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vecto
 	
 	
 	double virial=0;
+	int overlap=0;
+	double e;
+	int neighbours=0;
 	
 	for (dx=0;dx<3;dx++)
 	{
@@ -157,7 +160,16 @@ void getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vecto
 				while (j!=-1)
 				{
 					if (j!=label)
-						computeparticleEnergy2Particles(label,j,pos,num_particles,box,energy,&virial);
+					{
+						//computeparticleEnergy2Particles(label,j,pos,num_particles,box,energy,&virial);
+						overlap=computeNumNeighbours(label,j,pos,num_particles,box,&e,&virial);
+						
+						if (overlap)
+							return 1;
+						else
+							neighbours+=(int)e;
+					}
+					
 					
 					j=(l->LinkedList)[j];
 				}
@@ -165,6 +177,12 @@ void getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vecto
 		}
 	}
 	
+	if (neighbours==4)
+		*energy=-1;
+	else
+		*energy=0;
+	
+	return 0;
 }
 
 

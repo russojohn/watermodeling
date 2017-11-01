@@ -6,6 +6,7 @@
 #include<time.h>
 #include<math.h>
 #include<assert.h>
+#include<string.h>
 
 #include "vector.h"
 #include "practice_energy.h"
@@ -71,19 +72,45 @@ void computeSystemEnergy(vector *pos, int numparticles, vector box, double *ener
 {
 	//no need to optimise, only called once, be lazy :)
 	double e = 0, v = 0;
+	int overlap=0;
 	
 	int particle1;
+	
+	*energy=0;
+	
 	for (particle1 = 0; particle1<numparticles; particle1++)
 	{
+		int neighbours=0;
+		
 		int particle2;
-		for (particle2 = particle1 + 1; particle2<numparticles; particle2++)
+		for (particle2 = 0; particle2<numparticles; particle2++)
 		{
-			computeparticleEnergy2Particles(particle1, particle2, pos, numparticles, box, &e, &v);
+			if (particle1!=particle2)
+			{
+			
+				overlap+=computeNumNeighbours(particle1, particle2, pos, numparticles, box, &e, &v);
+				
+				neighbours+=(int)e;
+			}
+		}
+		
+		if (neighbours==4)
+		{
+			*energy+=-1;
 		}
 	}
-
-	*energy = e;
-	*virial = v;
+	
+	
+	if (overlap>0)
+	{
+		fprintf(stderr,"Error in initial condition. There are %d overlap\n",overlap);
+		exit(1);
+	}
+	
+	
+	
+// 	*energy = e;
+// 	*virial = v;
 
 }
 
@@ -108,21 +135,28 @@ void computeparticleEnergy(int seed, vector *pos, int numparticles, vector box, 
 }
 
 
-void computeparticleEnergyCells(int seed, vector *pos, int numparticles, vector box, double *energy, double *virial,listcell *cells)
+int computeparticleEnergyCells(int seed, vector *pos, int numparticles, vector box, double *energy, double *virial,listcell *cells)
 {
 	double e = 0, v = 0;
+	int overlap=0;
 	
-	getParticleEnergy(cells,pos,numparticles,seed,box,&e);
+	overlap=getParticleEnergy(cells,pos,numparticles,seed,box,&e);
+	
+	
 	
 	*energy = e;
 	*virial = v;
+	
+	return overlap;
 }
+
 
 void metropolisMove(int seed, vector *pos, int numparticles, vector box, double maxdisplacement, double temperature, double *energy, double *virial,listcell *cells)
 {
 	double old_energy, old_virial;
-
- 	computeparticleEnergyCells(seed, pos, numparticles, box, &old_energy, &old_virial,cells);
+	int overlap=0;
+ 	//computeparticleEnergyCells(seed, pos, numparticles, box, &old_energy, &old_virial,cells);
+	overlap=getParticleEnergy(cells,pos,numparticles,seed,box,&old_energy);
 	//computeparticleEnergy(seed, pos, numparticles, box, &old_energy, &old_virial);
 
 	vector old_pos = pos[seed];
@@ -137,23 +171,38 @@ void metropolisMove(int seed, vector *pos, int numparticles, vector box, double 
 	
 	double new_energy, new_virial;
 
- 	computeparticleEnergyCells(seed, pos, numparticles, box, &new_energy, &new_virial,cells);
+ 	//computeparticleEnergyCells(seed, pos, numparticles, box, &new_energy, &new_virial,cells);
+	
+	overlap=getParticleEnergy(cells,pos,numparticles,seed,box,&new_energy);
+	
+	
+	
 	//computeparticleEnergy(seed, pos, numparticles, box, &new_energy, &new_virial);
 
 	// metropolis
 	double deltaE = new_energy - old_energy;
-
-	if ((deltaE <= 0.) || (((double)rand() / (double)RAND_MAX)<exp(-(deltaE) / temperature)))
-	{
-		// accepted move
-		*energy += deltaE;
-		*virial += new_virial - old_virial;
-		
-		changeCell(cells,&old_pos,pos+seed,seed);
-	}
+	
+	if (overlap!=0)
+		pos[seed] = old_pos;
 	else
 	{
-		pos[seed] = old_pos;
+
+		if ((deltaE <= 0.) || (((double)rand() / (double)RAND_MAX)<exp(-(deltaE) / temperature)))
+		{
+	// 		printf("%lf %lf %lf %lf\n",old_energy,new_energy,deltaE,exp(-(deltaE) / temperature));
+			
+			// accepted move
+			*energy += deltaE;
+			*virial += new_virial - old_virial;
+			
+			changeCell(cells,&old_pos,pos+seed,seed);
+		}
+		else
+		{
+			
+			
+			pos[seed] = old_pos;
+		}
 	}
 }
 
@@ -165,21 +214,33 @@ void printStatistics(int t, vector *pos, int numparticles, vector box, double te
 
 	double pressure = ideal_pressure + (virial) / (3.*box.x*box.y*box.z);
 
-	fprintf(efile, "%d %9.5lf\n", t, (energy) / (double)numparticles);
+	double system_energy;
+	computeSystemEnergy(pos, numparticles, box, &system_energy, &virial);
+	
+	fprintf(efile, "%d %9.5lf\n", t, (system_energy) / (double)numparticles);
 	fprintf(pfile, "%d %9.5lf\n", t, pressure);
 }
 
 int main(int argc, char *argv[])
 {
+	if (argc!=2)
+	{
+		printf("%s [initial file]\n",argv[0]);
+		exit(1);
+	}
+	
 	// DEFINE VARIABLES
-	char input_file[200] = "initial_conditions.dat";
+	char input_file[200];
+	
+	strcpy(input_file,argv[1]);
+	
 	vector *pos;
 	int numparticles;
 	vector box;
 	int i; //why am i defined up here?
-	int total_length = 100000;
+	int total_length = 10000000;
 	double maxdisplacement = 0.1;
-	double temperature = 1.2;
+	double temperature = 0.5;
 
 	// READ INITIAL FILE
 	//why do we pass i? what is i?
@@ -212,14 +273,20 @@ int main(int argc, char *argv[])
 			metropolisMove(seed, pos, numparticles, box, maxdisplacement, temperature, &energy, &virial,cells);
 		}
 
-		if (i % 1 == 0)
+		if (i % 100 == 0)
 		{
 			printf("Step %d\n", i);
 			printStatistics(i, pos, numparticles, box, temperature, energy, virial, efile, pfile);
 			fflush(efile);
 			fflush(pfile);
+			
+			
+// 			
 			//why dont we flush pfile?
 		}
+		
+// 		printf("pos %lf %lf %lf\n",pos[99].x,pos[99].y,pos[99].z);
+		
 	}
 
 	fclose(efile);
