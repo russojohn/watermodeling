@@ -58,9 +58,9 @@ int computeNumNeighbours(int particle1, int particle2, vector *pos, int numparti
 		*energy = 1;
 		//*virial += 48.*r6i*(r6i - 0.5);
 	}
-	else
-		*energy=0;
-	
+	else{
+		*energy = 0;
+	}
 	return 0;
 }
 

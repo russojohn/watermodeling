@@ -18,7 +18,7 @@ listcell* getList(vector box_sides,double cutoff,int num_particles);
 void freeList(listcell *l);
 void resetList(listcell *l);
 void updateList(listcell *l,const vector *pos,int num);
-int getParticleEnergy(listcell *l,vector *pos,int num_particles,int label,vector box, double *energy);
+int getParticleEnergy(listcell *l, vector *pos, int num_particles, int label, vector box, double *energy, node** neiOfLabel);
 void changeCell(listcell *l,const vector *oldpos,const vector *newpos,int num);
 
 #endif
