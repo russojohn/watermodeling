@@ -291,16 +291,17 @@ void initNumNeighbours(vector *pos, int numparticles, vector box, double* numNei
 
 int main(int argc, char *argv[])
 {
-	/*if (argc!=2)
+	if (argc!=3)
 	{
-	printf("%s [initial file]\n",argv[0]);
+	printf("%s [initial file] [temperature]\n",argv[0]);
 	exit(1);
-	}*/
+	}
 
 	// DEFINE VARIABLES
 	char input_file[200] = "initial_conditions1.dat";
+	double temperature=atof(argv[2]);
 
-	//strcpy(input_file,argv[1]);
+	strcpy(input_file,argv[1]);
  
 
 	vector *pos;
@@ -310,7 +311,6 @@ int main(int argc, char *argv[])
 	int i;
 	int total_length = 10000000;
 	double maxdisplacement = 0.1;
-	double temperature = 0.5;
 
 	// READ INITIAL FILE
 	readInitialConditions(input_file, &pos, &numparticles, &box, &i);
